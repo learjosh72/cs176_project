@@ -50,3 +50,80 @@ merged_df['weather_condition'] = merged_df.apply(classify_weather, axis=1)
 merged_df.to_csv('merged_final_dataset.csv', index=False)
 
 # Each row in the merged dataset represents one hour in NYC, combining weather, traffic, and accident data for analysis
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# make bar graph for accident frequency per weather type
+def barc(df):
+    y = {}
+    for i,x in df.iterrows():
+        if x['weather_condition'] not in y:
+            y[x['weather_condition']] = 1
+        else:
+            y[x['weather_condition']]+=1
+    keys = list(y.keys())
+    values = list(y.values())
+    plt.bar(keys, values)
+    plt.title('accidents per weather type')
+    plt.xlabel("Weather Type")
+    plt.ylabel("Accidents")
+    plt.show()
+
+# make line graph of accident frequency per traffic volume
+def line(df):
+
+    x = df['Vol'].unique()
+    y = dict.fromkeys(list(x), 0)
+
+    for i,k in df.iterrows():
+        k['Vol'] += 1
+
+    plt.plot(list(y.keys()),list(y.values()))
+    plt.title('Accidents per Traffic Volume')
+    plt.xlabel("Traffic Volume")
+    plt.ylabel("Accidents")
+    plt.show()
+
+# make scatter plot of temperature and frequency of accidents
+def scatter(df):
+    x = df['temperature_2m (°C)'].unique()
+    y = dict.fromkeys(list(x), 0)
+
+    for i, k in df.iterrows():
+        k['temperature_2m (°C)'] += 1
+    xv = list(y.keys())
+    yv = list(y.values())
+    plt.scatter(xv,yv)
+    plt.title('Accidents as different Temperatures')
+    plt.xlabel("Temperature")
+    plt.ylabel("Accidents")
+    plt.show()
+
+# make histogram of people injured (also returns a total as well in case we want it)
+def histogram(df):
+    plt.hist(df['NUMBER OF PERSONS INJURED'])
+    plt.title('People injured Per Accident')
+    plt.show()
+    total = df['NUMBER OF PERSONS INJURED'].sum() + df['NUMBER OF PERSONS KILLED'].sum()
+    return total
+
+# makes boxplot of different traffic volumes per weather type
+def boxplot(df):
+    types = list(df['weather_condition'].unique())
+    y = dict.fromkeys(types, [])
+    for i,x in df.iterrows():
+        y[x['weather_condition']].append(x['Vol'])
+    plt.boxplot(list(y.values()), labels=list(y.keys()))
+    plt.title('Traffic Volume Per Weather Type')
+    plt.xlabel("Weather Type")
+    plt.ylabel("Traffic Volume")
+    plt.show()
+
+# calls each one
+barc(merged_df)
+line(merged_df)
+scatter(merged_df)
+histogram(merged_df)
+boxplot(merged_df)
+
