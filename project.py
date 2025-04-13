@@ -8,47 +8,42 @@ traffic_df = pd.read_csv('Automated_Traffic_Volume_Counts_20250330.csv')
 
 #-------
 # Step 2: Clean crash_df (1st dataset)
-# Remove duplicates
 crash_df = crash_df.drop_duplicates()
-# Handle missing values: Drop rows with missing CRASH DATE or CRASH TIME
 crash_df = crash_df.dropna(subset=['CRASH DATE', 'CRASH TIME'])
-
-# Create ONE timestamp column in the 1st dataset crash_df
-# Combine CRASH DATE and CRASH TIME into one column, then convert to datetime format
 crash_df['timestamp'] = crash_df['CRASH DATE'] + ' ' + crash_df['CRASH TIME']
 crash_df['timestamp'] = pd.to_datetime(crash_df['timestamp'], errors='coerce')
-
-# Keep only rows from the year 2021
 crash_df = crash_df[crash_df['timestamp'].dt.year == 2021]
-# Round to the nearest hour to help with merging
 crash_df['timestamp'] = crash_df['timestamp'].dt.floor('h')
+
 
 #-------
 # Step 3: Clean weather_df (2nd data set)
-# Remove duplicates
 weather_df = weather_df.drop_duplicates()
-# Handle missing values: Drop rows with missing 'time' column
 weather_df = weather_df.dropna(subset=['time'])
-
-# Convert 'time' column to datetime and rename it to 'timestamp' for merging
 weather_df['timestamp'] = pd.to_datetime(weather_df['time'], errors='coerce')
-weather_df = weather_df[weather_df['timestamp'].dt.year == 2021]
+weather_df = weather_df[weather_df['timestamp'].dt.year == 2021]            #select only 2021
 weather_df['timestamp'] = weather_df['timestamp'].dt.floor('h')
 
 #-------
 # Step 4: Clean traffic_df (3rd Dataset)
-# Remove duplicates
 traffic_df = traffic_df.drop_duplicates()
-# Handle missing values: Drop rows with missing year, month, day, or hour columns
-traffic_df = traffic_df.dropna(subset=['Yr', 'MM', 'DD', 'HH'])
-# Build a datetime column from year, month, day, hour columns
-traffic_df['timestamp'] = pd.to_datetime(traffic_df[['Yr', 'MM', 'DD', 'HH']], errors='coerce')
+traffic_df = traffic_df.dropna(subset=['Yr', 'M', 'D', 'HH'])  # Ensure column names match
+traffic_df['timestamp'] = pd.to_datetime({
+    'year': traffic_df['Yr'],
+    'month': traffic_df['M'],
+    'day': traffic_df['D'],
+    'hour': traffic_df['HH']
+}, errors='coerce')
+
+#traffic_df['timestamp'] = pd.to_datetime(traffic_df[['Yr', 'M', 'D', 'HH']], errors='coerce')  # Corrected column names
 traffic_df = traffic_df[traffic_df['timestamp'].dt.year == 2021]
+
 
 #-------
 # Step 5: Group traffic data by timestamp and sum the volume
 # This gives us total number of vehicles each hour across all locations
 traffic_grouped = traffic_df.groupby('timestamp').sum().reset_index()
+#traffic_grouped = traffic_df.groupby('timestamp')['Vol'].sum().reset_index()
 
 #-------
 # Step 6: Merge the datasets together one by one
