@@ -170,76 +170,77 @@ def boxplot(df):
     plt.ylabel("Traffic Volume")
     plt.show()
 
+import matplotlib.pyplot as plt
 
-def plot_monthly_traffic_volume():
-    # Prepare the data
+
+def plot_monthly_traffic_volume_v0():
+    # Prepare the data - group traffic data by month and day
     traffic_df['day_of_month'] = traffic_df['timestamp'].dt.day
     traffic_df['month'] = traffic_df['timestamp'].dt.month
 
-    # Group by month and day
+    # Group by month and day, then sum the volume
     monthly_daily_traffic = traffic_df.groupby(['month', 'day_of_month'])['Vol'].sum().unstack(level=0)
 
     # Create the plot
     plt.figure(figsize=(14, 8))
 
-    # New temperature-based colors (Dec→Jan = coldest, Jul→Aug = hottest)
-    month_colors = {
-        1: '#0a3d6b',  # January (Dark Blue - Coldest)
-        2: '#1a5b92',  # February (Deep Blue)
-        3: '#3a7cb8',  # March (Medium Blue)
-        4: '#5d9bd4',  # April (Light Blue)
-        5: '#a5d5f8',  # May (Pale Blue - Cool)
-        6: '#ffcc99',  # June (Peach - Warming)
-        7: '#ff9966',  # July (Light Orange - Warm)
-        8: '#ff3300',  # August (Dark Red - Hottest)
-        9: '#ff6600',  # September (Bright Orange - Cooling)
-        10: '#ff9933',  # October (Light Orange - Mild)
-        11: '#3a7cb8',  # November (Medium Blue - Cold)
-        12: '#0a3d6b'  # December (Dark Blue - Coldest)
-    }
-    # Month names for legend
+    # Plot each month as a separate line
+    months = range(1, 13)
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    # Plot each month
-    for month in range(1, 13):
+
+    for month in months:
+        # Get the data for this month
         month_data = monthly_daily_traffic[month]
+
+        # Plot the line
         plt.plot(month_data.index, month_data.values,
-                 color=month_colors[month],
                  label=month_names[month - 1],
                  marker='o', markersize=4, linewidth=2)
-    # Customize plot
-    plt.title('Daily Traffic Volume by Month (2021) - Colored by Temperature', fontsize=16)
+
+    # Customize the plot
+    plt.title('Daily Traffic Volume by Month (2021)', fontsize=16)
     plt.xlabel('Day of Month', fontsize=14)
     plt.ylabel('Total Traffic Volume', fontsize=14)
     plt.xticks(range(1, 32))
     plt.grid(True, linestyle='--', alpha=0.7)
-    #plt.legend(title='Month', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(title='Month', bbox_to_anchor=(1.05, 1), loc='upper left')
 
-    # Add temperature colorbar (optional)
-    from matplotlib.colors import LinearSegmentedColormap
-    sm = plt.cm.ScalarMappable(
-        cmap=LinearSegmentedColormap.from_list("temp_colors", [month_colors[1], month_colors[8]]),
-        norm=plt.Normalize(vmin=1, vmax=12)
-    )
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=plt.gca(), label='Temperature Trend')
-    cbar.set_ticks([1, 6, 12])
-    cbar.set_ticklabels(['Cold (Dec/Jan)', 'Mild (Jun)', 'Hot (Aug)'])
-
+    # Adjust layout to prevent label cutoff
     plt.tight_layout()
+
+    # Show the plot
     plt.show()
 
-def plot_monthly_traffic_volume_outliers():
+def plot_monthly_traffic_volume():
     # Prepare the data
     traffic_df['day_of_month'] = traffic_df['timestamp'].dt.day
     traffic_df['month'] = traffic_df['timestamp'].dt.month
+    traffic_df['date'] = traffic_df['timestamp'].dt.date
 
-    # Filter outliers (replace values > 70,000 with median of values <= 70,000)
-    median_under_70k = traffic_df[traffic_df['Vol'] <= 70000]['Vol'].median()
-    traffic_df['Vol_filtered'] = traffic_df['Vol'].where(traffic_df['Vol'] <= 70000, median_under_70k)
+    # First calculate daily sums
+    daily_traffic = traffic_df.groupby(['month', 'day_of_month', 'date'])['Vol'].sum().reset_index()
 
-    # Group by month and day using the filtered data
-    monthly_daily_traffic = traffic_df.groupby(['month', 'day_of_month'])['Vol_filtered'].sum().unstack(level=0)
+    # Calculate monthly medians of daily sums (only considering days <= 70,000)
+    monthly_medians = daily_traffic[daily_traffic['Vol'] <= 70000].groupby('month')['Vol'].median()
+
+    # Calculate overall median (for NaN replacement)
+    overall_median = daily_traffic[daily_traffic['Vol'] <= 70000]['Vol'].median()
+
+    # Create a dictionary for faster lookup
+    month_median_dict = monthly_medians.to_dict()
+
+    # Replace outliers in daily sums
+    def replace_outliers(row):
+        if row['Vol'] > 70000:
+            # Use monthly median if available, otherwise overall median
+            return month_median_dict.get(row['month'], overall_median)
+        return row['Vol']
+
+    daily_traffic['Vol_filtered'] = daily_traffic.apply(replace_outliers, axis=1)
+
+    # Now group by month and day_of_month using the filtered daily sums
+    monthly_daily_traffic = daily_traffic.groupby(['month', 'day_of_month'])['Vol_filtered'].sum().unstack(level=0)
 
     # Create the plot
     plt.figure(figsize=(14, 8))
@@ -259,9 +260,11 @@ def plot_monthly_traffic_volume_outliers():
         11: '#3a7cb8',  # November (Medium Blue - Cold)
         12: '#0a3d6b'  # December (Dark Blue - Coldest)
     }
+
     # Month names for legend
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
     # Plot each month
     for month in range(1, 13):
         month_data = monthly_daily_traffic[month]
@@ -269,15 +272,17 @@ def plot_monthly_traffic_volume_outliers():
                  color=month_colors[month],
                  label=month_names[month - 1],
                  marker='o', markersize=4, linewidth=2)
+
     # Customize plot
-    plt.title('Daily Traffic Volume by Month (2021) - Colored by Temperature\n(Outliers >70,000 replaced with median)', fontsize=16)
+    plt.title(
+        'Daily Traffic Volume by Month (2021) - Colored by Temperature\n(Daily totals >70,000 replaced with monthly median)',
+        fontsize=16)
     plt.xlabel('Day of Month', fontsize=14)
     plt.ylabel('Total Traffic Volume', fontsize=14)
     plt.xticks(range(1, 32))
     plt.grid(True, linestyle='--', alpha=0.7)
-    #plt.legend(title='Month', bbox_to_anchor=(1.05, 1), loc='upper left')
 
-    # Add temperature colorbar (optional)
+    # Add temperature colorbar
     from matplotlib.colors import LinearSegmentedColormap
     sm = plt.cm.ScalarMappable(
         cmap=LinearSegmentedColormap.from_list("temp_colors", [month_colors[1], month_colors[8]]),
@@ -291,8 +296,183 @@ def plot_monthly_traffic_volume_outliers():
     plt.tight_layout()
     plt.show()
 
-plot_monthly_traffic_volume_outliers()
+def fatal_acc():
+    # Create new dataframe with accidents where (killed + injured) > 5
+    severe_accidents_df = merged_df[
+        (merged_df['NUMBER OF PERSONS KILLED'] + merged_df['NUMBER OF PERSONS INJURED']) > 5
+        ].copy()
 
+    # Extract date from timestamp for merging with daily traffic
+    severe_accidents_df['date'] = severe_accidents_df['timestamp'].dt.date
+
+    # Calculate daily traffic volume (sum of all hours in each day)
+    daily_traffic = traffic_df.groupby(traffic_df['timestamp'].dt.date)['Vol'].sum().reset_index()
+    daily_traffic.columns = ['date', 'daily_traffic_volume']
+
+    # Merge daily traffic volume with severe accidents
+    severe_accidents_df = pd.merge(severe_accidents_df, daily_traffic, on='date', how='left')
+
+    # Create combined killed+injured column
+    severe_accidents_df['total_casualties'] = (
+            severe_accidents_df['NUMBER OF PERSONS KILLED'] +
+            severe_accidents_df['NUMBER OF PERSONS INJURED']
+    )
+
+    # Select and rename important columns
+    columns_to_keep = [
+        'COLLISION_ID',
+        'timestamp',
+        'daily_traffic_volume',
+        'weather_condition',
+        'temperature_2m (°C)',
+        'rain (mm)',
+        'windspeed_10m (km/h)',
+        'NUMBER OF PERSONS INJURED',
+        'NUMBER OF PERSONS KILLED',
+        'total_casualties',
+        'NUMBER OF PEDESTRIANS INJURED',
+        'NUMBER OF PEDESTRIANS KILLED',
+        'NUMBER OF CYCLIST INJURED',
+        'NUMBER OF CYCLIST KILLED',
+        'NUMBER OF MOTORIST INJURED',
+        'NUMBER OF MOTORIST KILLED',
+        'VEHICLE TYPE CODE 1',
+        'VEHICLE TYPE CODE 2'
+    ]
+
+    # Create final dataframe
+    severe_accidents_final = severe_accidents_df[columns_to_keep].copy()
+
+    # Rename columns for clarity
+    severe_accidents_final = severe_accidents_final.rename(columns={
+        'timestamp': 'crash_datetime',
+        'temperature_2m (°C)': 'temperature_celsius',
+        'rain (mm)': 'rainfall_mm',
+        'windspeed_10m (km/h)': 'wind_speed_kmh'
+    })
+
+    # Add separate date and time columns
+    severe_accidents_final['crash_date'] = severe_accidents_final['crash_datetime'].dt.date
+    severe_accidents_final['crash_time'] = severe_accidents_final['crash_datetime'].dt.time
+
+    # Reorder columns
+    column_order = [
+        'COLLISION_ID',
+        'crash_datetime',
+        'crash_date',
+        'crash_time',
+        'daily_traffic_volume',
+        'weather_condition',
+        'temperature_celsius',
+        'rainfall_mm',
+        'wind_speed_kmh',
+        'NUMBER OF PERSONS INJURED',
+        'NUMBER OF PERSONS KILLED',
+        'total_casualties',
+        'NUMBER OF PEDESTRIANS INJURED',
+        'NUMBER OF PEDESTRIANS KILLED',
+        'NUMBER OF CYCLIST INJURED',
+        'NUMBER OF CYCLIST KILLED',
+        'NUMBER OF MOTORIST INJURED',
+        'NUMBER OF MOTORIST KILLED',
+        'VEHICLE TYPE CODE 1',
+        'VEHICLE TYPE CODE 2'
+    ]
+    severe_accidents_final = severe_accidents_final[column_order]
+    return severe_accidents_final
+
+def plot_weather_distribution(severe_accidents_df):
+    """
+    Plot the distribution of weather conditions during severe accidents
+    """
+    # Count weather occurrences
+    weather_counts = severe_accidents_df['weather_condition'].value_counts()
+
+    # Create figure
+    plt.figure(figsize=(10, 6))
+
+    # Create bar plot
+    bars = plt.bar(weather_counts.index, weather_counts.values,
+                   color=['skyblue', 'lightcoral', 'lightgreen'])
+
+    # Add counts on top of bars
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2., height,
+                 f'{int(height)}',
+                 ha='center', va='bottom')
+
+    plt.title('Weather Conditions During Severe Accidents (>5 casualties)')
+    plt.xlabel('Weather Condition')
+    plt.ylabel('Number of Accidents')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.show()
+
+def plot_casualties_vs_weather(severe_accidents_df):
+    """
+    Plot boxplot of casualties by weather condition using only plt
+    """
+    # Prepare data for boxplot
+    weather_types = severe_accidents_df['weather_condition'].unique()
+    data = [severe_accidents_df[severe_accidents_df['weather_condition'] == wt]['total_casualties']
+            for wt in weather_types]
+
+    # Create figure
+    plt.figure(figsize=(10, 6))
+
+    # Create boxplot using plt
+    positions = range(1, len(weather_types) + 1)
+    box = plt.boxplot(data, positions=positions, patch_artist=True,
+                      labels=weather_types)
+
+    # Color boxes
+    colors = ['skyblue', 'lightcoral', 'lightgreen']
+    for patch, color in zip(box['boxes'], colors):
+        patch.set_facecolor(color)
+
+    plt.title('Distribution of Casualties by Weather Condition')
+    plt.xlabel('Weather Condition')
+    plt.ylabel('Total Casualties (Killed + Injured)')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.show()
+
+def plot_weather_hourly_pattern(severe_accidents_df):
+    """
+    Plot hourly distribution of accidents by weather condition using only plt
+    """
+    # Extract hour from timestamp
+    severe_accidents_df['hour'] = severe_accidents_df['crash_datetime'].dt.hour
+
+    # Get unique weather conditions
+    weather_types = severe_accidents_df['weather_condition'].unique()
+
+    # Create figure
+    plt.figure(figsize=(12, 6))
+
+    # Plot line for each weather type
+    colors = ['blue', 'red', 'green']
+    for wt, color in zip(weather_types, colors):
+        hourly_counts = severe_accidents_df[severe_accidents_df['weather_condition'] == wt] \
+            .groupby('hour').size()
+        plt.plot(hourly_counts.index, hourly_counts.values,
+                 label=wt, color=color, marker='o')
+
+    plt.title('Hourly Distribution of Severe Accidents by Weather Condition')
+    plt.xlabel('Hour of Day')
+    plt.ylabel('Number of Accidents')
+    plt.xticks(range(24))
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    plt.show()
+
+
+# First get your severe accidents data
+severe_accidents = fatal_acc()
+
+# Then generate the plots
+plot_weather_distribution(severe_accidents)
+plot_casualties_vs_weather(severe_accidents)
+plot_weather_hourly_pattern(severe_accidents)
 
 # calls each one
 #barc(merged_df)
@@ -301,3 +481,4 @@ plot_monthly_traffic_volume_outliers()
 #histogram(merged_df)
 #boxplot(merged_df)
 
+#plot_monthly_traffic_volume_v0()
