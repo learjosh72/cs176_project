@@ -170,10 +170,134 @@ def boxplot(df):
     plt.ylabel("Traffic Volume")
     plt.show()
 
+
+def plot_monthly_traffic_volume():
+    # Prepare the data
+    traffic_df['day_of_month'] = traffic_df['timestamp'].dt.day
+    traffic_df['month'] = traffic_df['timestamp'].dt.month
+
+    # Group by month and day
+    monthly_daily_traffic = traffic_df.groupby(['month', 'day_of_month'])['Vol'].sum().unstack(level=0)
+
+    # Create the plot
+    plt.figure(figsize=(14, 8))
+
+    # New temperature-based colors (Dec→Jan = coldest, Jul→Aug = hottest)
+    month_colors = {
+        1: '#0a3d6b',  # January (Dark Blue - Coldest)
+        2: '#1a5b92',  # February (Deep Blue)
+        3: '#3a7cb8',  # March (Medium Blue)
+        4: '#5d9bd4',  # April (Light Blue)
+        5: '#a5d5f8',  # May (Pale Blue - Cool)
+        6: '#ffcc99',  # June (Peach - Warming)
+        7: '#ff9966',  # July (Light Orange - Warm)
+        8: '#ff3300',  # August (Dark Red - Hottest)
+        9: '#ff6600',  # September (Bright Orange - Cooling)
+        10: '#ff9933',  # October (Light Orange - Mild)
+        11: '#3a7cb8',  # November (Medium Blue - Cold)
+        12: '#0a3d6b'  # December (Dark Blue - Coldest)
+    }
+    # Month names for legend
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # Plot each month
+    for month in range(1, 13):
+        month_data = monthly_daily_traffic[month]
+        plt.plot(month_data.index, month_data.values,
+                 color=month_colors[month],
+                 label=month_names[month - 1],
+                 marker='o', markersize=4, linewidth=2)
+    # Customize plot
+    plt.title('Daily Traffic Volume by Month (2021) - Colored by Temperature', fontsize=16)
+    plt.xlabel('Day of Month', fontsize=14)
+    plt.ylabel('Total Traffic Volume', fontsize=14)
+    plt.xticks(range(1, 32))
+    plt.grid(True, linestyle='--', alpha=0.7)
+    #plt.legend(title='Month', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Add temperature colorbar (optional)
+    from matplotlib.colors import LinearSegmentedColormap
+    sm = plt.cm.ScalarMappable(
+        cmap=LinearSegmentedColormap.from_list("temp_colors", [month_colors[1], month_colors[8]]),
+        norm=plt.Normalize(vmin=1, vmax=12)
+    )
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=plt.gca(), label='Temperature Trend')
+    cbar.set_ticks([1, 6, 12])
+    cbar.set_ticklabels(['Cold (Dec/Jan)', 'Mild (Jun)', 'Hot (Aug)'])
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_monthly_traffic_volume_outliers():
+    # Prepare the data
+    traffic_df['day_of_month'] = traffic_df['timestamp'].dt.day
+    traffic_df['month'] = traffic_df['timestamp'].dt.month
+
+    # Filter outliers (replace values > 70,000 with median of values <= 70,000)
+    median_under_70k = traffic_df[traffic_df['Vol'] <= 70000]['Vol'].median()
+    traffic_df['Vol_filtered'] = traffic_df['Vol'].where(traffic_df['Vol'] <= 70000, median_under_70k)
+
+    # Group by month and day using the filtered data
+    monthly_daily_traffic = traffic_df.groupby(['month', 'day_of_month'])['Vol_filtered'].sum().unstack(level=0)
+
+    # Create the plot
+    plt.figure(figsize=(14, 8))
+
+    # New temperature-based colors (Dec→Jan = coldest, Jul→Aug = hottest)
+    month_colors = {
+        1: '#0a3d6b',  # January (Dark Blue - Coldest)
+        2: '#1a5b92',  # February (Deep Blue)
+        3: '#3a7cb8',  # March (Medium Blue)
+        4: '#5d9bd4',  # April (Light Blue)
+        5: '#a5d5f8',  # May (Pale Blue - Cool)
+        6: '#ffcc99',  # June (Peach - Warming)
+        7: '#ff9966',  # July (Light Orange - Warm)
+        8: '#ff3300',  # August (Dark Red - Hottest)
+        9: '#ff6600',  # September (Bright Orange - Cooling)
+        10: '#ff9933',  # October (Light Orange - Mild)
+        11: '#3a7cb8',  # November (Medium Blue - Cold)
+        12: '#0a3d6b'  # December (Dark Blue - Coldest)
+    }
+    # Month names for legend
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # Plot each month
+    for month in range(1, 13):
+        month_data = monthly_daily_traffic[month]
+        plt.plot(month_data.index, month_data.values,
+                 color=month_colors[month],
+                 label=month_names[month - 1],
+                 marker='o', markersize=4, linewidth=2)
+    # Customize plot
+    plt.title('Daily Traffic Volume by Month (2021) - Colored by Temperature\n(Outliers >70,000 replaced with median)', fontsize=16)
+    plt.xlabel('Day of Month', fontsize=14)
+    plt.ylabel('Total Traffic Volume', fontsize=14)
+    plt.xticks(range(1, 32))
+    plt.grid(True, linestyle='--', alpha=0.7)
+    #plt.legend(title='Month', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Add temperature colorbar (optional)
+    from matplotlib.colors import LinearSegmentedColormap
+    sm = plt.cm.ScalarMappable(
+        cmap=LinearSegmentedColormap.from_list("temp_colors", [month_colors[1], month_colors[8]]),
+        norm=plt.Normalize(vmin=1, vmax=12)
+    )
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=plt.gca(), label='Temperature Trend')
+    cbar.set_ticks([1, 6, 12])
+    cbar.set_ticklabels(['Cold (Dec/Jan)', 'Mild (Jun)', 'Hot (Aug)'])
+
+    plt.tight_layout()
+    plt.show()
+
+plot_monthly_traffic_volume_outliers()
+
+
 # calls each one
-barc(merged_df)
-line(merged_df)
-scatter(merged_df)
-histogram(merged_df)
-boxplot(merged_df)
+#barc(merged_df)
+#line(merged_df)
+#scatter(merged_df)
+#histogram(merged_df)
+#boxplot(merged_df)
 
