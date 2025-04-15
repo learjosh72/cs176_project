@@ -56,7 +56,7 @@ merged_df = pd.merge(merged_df, traffic_grouped[['timestamp', 'Vol']], on='times
 def classify_weather(row):
     if row['rain (mm)'] > 0.5:
         return 'Rainy'
-    elif row['windspeed_10m (km/h)'] > 60:
+    elif row['windspeed_10m (km/h)'] > 30:
         return 'Windy'
     else:
         return 'Clear'
@@ -72,28 +72,49 @@ import numpy as np
 
 # make bar graph for accident frequency per weather type
 def barc(df):
+    wind = weather_df.loc[(weather_df['windspeed_10m (km/h)'] > 30) & (weather_df['timestamp'].dt.year == 2021)]['time'].count().astype(int)
+    rain = weather_df.loc[(weather_df['rain (mm)'] > 0.5) & (weather_df['timestamp'].dt.year == 2021)]['time'].count().astype(int)
+    clear = weather_df.loc[(weather_df['windspeed_10m (km/h)'] <= 30) & (weather_df['timestamp'].dt.year == 2021) & (weather_df['rain (mm)'] <= 0.5)]['time'].count().astype(int)
+
+    print(wind, rain, clear)
     y = {}
     for i,x in df.iterrows():
         if x['weather_condition'] not in y:
             y[x['weather_condition']] = 1
         else:
             y[x['weather_condition']]+=1
+    x1 = y['Rainy']/rain
+    x2 = y['Clear']/clear
+    x3 = y['Windy']/wind
     keys = list(y.keys())
+    data2 = dict.fromkeys(keys)
+    data2['Rainy'] = x1
+    data2['Clear'] = x2
+    data2['Windy'] = x3
     values = list(y.values())
+    plt.subplot(1,2,1)
     plt.bar(keys, values)
-    plt.title('accidents per weather type')
+    plt.title('Accidents Per Weather Type')
     plt.xlabel("Weather Type")
     plt.ylabel("Accidents")
+
+    plt.subplot(1,2,2)
+    plt.bar(keys, list(data2.values()))
+    plt.title('Proportional Version')
+    plt.xlabel("Weather Type")
+    plt.ylabel("Accident Per Day of Weather Type")
+    plt.tight_layout()
     plt.show()
 
 # make line graph of accident frequency per traffic volume
 def line(df):
 
     x = df['Vol'].unique()
+    x.sort()
     y = dict.fromkeys(list(x), 0)
 
     for i,k in df.iterrows():
-        k['Vol'] += 1
+        y[k['Vol']] += 1
 
     plt.plot(list(y.keys()),list(y.values()))
     plt.title('Accidents per Traffic Volume')
@@ -107,7 +128,7 @@ def scatter(df):
     y = dict.fromkeys(list(x), 0)
 
     for i, k in df.iterrows():
-        k['temperature_2m (°C)'] += 1
+        y[k['temperature_2m (°C)']] += 1
     xv = list(y.keys())
     yv = list(y.values())
     plt.scatter(xv,yv)
@@ -118,8 +139,17 @@ def scatter(df):
 
 # make histogram of people injured (also returns a total as well in case we want it)
 def histogram(df):
-    plt.hist(df['NUMBER OF PERSONS INJURED'])
-    plt.title('People injured Per Accident')
+
+    df['combine'] = df['NUMBER OF PERSONS INJURED'] + df['NUMBER OF PERSONS KILLED']
+    high = df.loc[df['combine'] > 5]
+    low = df.loc[df['combine'] <= 5]
+    plt.subplot(1,2,1)
+    plt.hist(low['combine'])
+    plt.title('Injured/Killed Per Accident')
+
+    plt.subplot(1,2,2)
+    plt.hist(high['combine'])
+    plt.title('Injured/Killed Per Accident > 5')
     plt.show()
     total = df['NUMBER OF PERSONS INJURED'].sum() + df['NUMBER OF PERSONS KILLED'].sum()
     return total
@@ -127,9 +157,13 @@ def histogram(df):
 # makes boxplot of different traffic volumes per weather type
 def boxplot(df):
     types = list(df['weather_condition'].unique())
-    y = dict.fromkeys(types, [])
+    y = {}
     for i,x in df.iterrows():
-        y[x['weather_condition']].append(x['Vol'])
+        if x['weather_condition'] not in y:
+            y[x['weather_condition']] = []
+            y[x['weather_condition']].append(x['Vol'])
+        else:
+            y[x['weather_condition']].append(x['Vol'])
     plt.boxplot(list(y.values()), labels=list(y.keys()))
     plt.title('Traffic Volume Per Weather Type')
     plt.xlabel("Weather Type")
