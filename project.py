@@ -145,12 +145,18 @@ def histogram(df):
     low = df.loc[df['combine'] <= 5]
     plt.subplot(1,2,1)
     plt.hist(low['combine'])
-    plt.title('Injured/Killed Per Accident')
+    plt.title('Injured/Killed Per Accident <= 5')
+    plt.xlabel('Persons Injured/Killed')
+    plt.ylabel('Number of Accidents')
 
     plt.subplot(1,2,2)
     plt.hist(high['combine'])
     plt.title('Injured/Killed Per Accident > 5')
+    plt.xlabel('Persons Injured/Killed')
+    plt.ylabel('Number of Accidents')
+    plt.tight_layout()
     plt.show()
+
     total = df['NUMBER OF PERSONS INJURED'].sum() + df['NUMBER OF PERSONS KILLED'].sum()
     return total
 
