@@ -1,5 +1,5 @@
 # Put code in here
-import pandas as pd 
+import pandas as pd
 
 # Step 1: Load all three CSV files
 crash_df = pd.read_csv('Motor_Vehicle_Collisions_-_Crashes_20250330.csv')
@@ -475,10 +475,21 @@ plot_casualties_vs_weather(severe_accidents)
 plot_weather_hourly_pattern(severe_accidents)
 
 # calls each one
-#barc(merged_df)
-#line(merged_df)
-#scatter(merged_df)
-#histogram(merged_df)
-#boxplot(merged_df)
+barc(merged_df)
+line(merged_df)
+scatter(merged_df)
+histogram(merged_df)
+boxplot(merged_df)
 
-#plot_monthly_traffic_volume_v0()
+plot_monthly_traffic_volume_v0()
+plot_monthly_traffic_volume()
+
+
+def pivot_table(df):
+    df['month'] = df['timestamp'].dt.month
+    pivot = df.pivot_table(index='month', values='Vol', columns=['weather_condition'], aggfunc='mean')
+    pivot = round(pivot, 2)
+    print(pivot)
+    pivot.to_csv("Pivoted_data.csv", index=False)
+
+pivot_table(merged_df)
